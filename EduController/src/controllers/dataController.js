@@ -252,7 +252,7 @@ const clearWishlistController = async (req, res) => {
 
 
 // ✅ FastAPI endpoint
-const FASTAPI_URL = "https://15ff-115-245-115-222.ngrok-free.app/search";//"https://3bae-115-245-115-222.ngrok-free.app/search";
+const FASTAPI_URL = "https://c4d3-47-247-75-228.ngrok-free.app/search";//"https://3bae-115-245-115-222.ngrok-free.app/search";
 
 const searchSmartCoursesController = async (req, res) => {
   try {
@@ -310,7 +310,7 @@ const searchSmartCoursesController = async (req, res) => {
 };
 
 
-const RECOMMENDATION_API = "https://f1cb-115-245-115-222.ngrok-free.app/api/recommend";//"https://fba6-115-245-115-222.ngrok-free.app/api/recommend";
+const RECOMMENDATION_API = "https://5f6e-47-247-75-228.ngrok-free.app/api/recommend";//"https://fba6-115-245-115-222.ngrok-free.app/api/recommend";
 
 const recommendCoursesController = async (req, res) => {
   try {
