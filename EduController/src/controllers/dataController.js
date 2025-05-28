@@ -346,8 +346,21 @@ const recommendCoursesController = async (req, res) => {
     // 6. Call FastAPI
     const response = await axios.post(RECOMMENDATION_API, payload);
 
-    // 7. Return recommended courses to Flutter
-    res.status(200).json({ results: response.data });
+    // 7. Extract recommended titles
+    const recommendedTitles = response.data.map(c => c.title);
+
+    // 8. Filter original courses using title and reattach image & full info
+    const enrichedResults = allCourses
+      .filter(course => recommendedTitles.includes(course.title))
+      .map(course => ({
+        title: course.title,
+        description: course.description || "",
+        tags: course.tags || [],
+        image: course.image || ""
+      }));
+
+    // 9. Return to frontend
+    res.status(200).json({ results: enrichedResults });
 
   } catch (err) {
     console.error("Recommendation error:", err.message);
