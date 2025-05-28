@@ -310,7 +310,7 @@ const searchSmartCoursesController = async (req, res) => {
 };
 
 
-const RECOMMENDATION_API = "https://c4d3-47-247-75-228.ngrok-free.app/api/recommend";//"https://fba6-115-245-115-222.ngrok-free.app/api/recommend";
+const RECOMMENDATION_API = "https://cc06-47-247-75-228.ngrok-free.app/api/recommend";//"https://fba6-115-245-115-222.ngrok-free.app/api/recommend";
 
 const recommendCoursesController = async (req, res) => {
   try {
