@@ -252,7 +252,7 @@ const clearWishlistController = async (req, res) => {
 
 
 // ✅ FastAPI endpoint
-const FASTAPI_URL = "https://5f6e-47-247-75-228.ngrok-free.app/search";//"https://3bae-115-245-115-222.ngrok-free.app/search";
+const FASTAPI_URL = "https://1ce7-47-247-75-228.ngrok-free.app/search";//"https://3bae-115-245-115-222.ngrok-free.app/search";
 
 const searchSmartCoursesController = async (req, res) => {
   try {
