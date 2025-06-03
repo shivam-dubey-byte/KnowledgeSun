@@ -69,7 +69,7 @@ const signup = async (req, res) => {
     const newUser = await findUserByEmail(email);
 
     // Generate token
-    const token = jwt.sign({ id: newUser._id,  email: newUser.email },"shivam", { expiresIn: "15d" });
+    const token = jwt.sign({ userId: newUser._id,  email: newUser.email },"shivam", { expiresIn: "15d" });
 
     res.status(201).json({
       message: "User registered successfully",
