@@ -17,13 +17,56 @@ const {
   clearWishlist
 } = require('../models/dataModel');
 
+const crypto = require('crypto');
 
 const { MongoClient } = require('mongodb');
 const connectDB = require('../connectDB');
 
 const axios = require("axios");
+const { response } = require('express');
 
 require('dotenv').config();
+
+
+
+// 32-byte AES key
+const key = Buffer.from('7c3932af93b283dae0c5173b9adffa299a87e33b92e13a9119e120d8249e199e', 'hex'); // 32-byte key for AES-256
+
+// AES-GCM encryption function
+function encrypt(text) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return Buffer.concat([iv, encrypted, tag]).toString('base64');
+}
+
+// AES-GCM decryption function
+function decrypt(data) {
+  const dataBuffer = Buffer.from(data, 'base64');
+  
+  if (dataBuffer.length < 28) {
+    throw new Error('Invalid encrypted data');
+  }
+
+  const iv = dataBuffer.slice(0, 12);
+  const tag = dataBuffer.slice(dataBuffer.length - 16);
+  const encrypted = dataBuffer.slice(12, dataBuffer.length - 16);
+
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(tag);
+
+  try {
+    let decrypted = decipher.update(encrypted, null, 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (err) {
+    console.error('Decryption failed:', err);
+    throw new Error('Decryption failed. Possible integrity issue.');
+  }
+}
+// AES-GCM encryption function
+
 
 // --------------------------
 // Data (Carousel & Courses) Handlers
@@ -32,9 +75,26 @@ require('dotenv').config();
 // Add a new carousel image
 const carouselAdd = async (req, res) => {
   try {
-    const { image, url } = req.body;
+    const { data } = req.body; // Encrypted login data from the frontend
+    console.log("Encrypted Response:", data);
+    console.log(data);
+    // Decrypt the entire payload
+    const decryptedResponse = decrypt(data); // Decrypt the data received from the frontend
+    console.log("Decrypted Response:", decryptedResponse);
+
+    // Parse the decrypted response into a JavaScript object
+    const { image, url } = JSON.parse(decryptedResponse);;
     const insertedId = await addCarousel(image, url);
-    res.status(201).json({ message: 'Carousel image added', id: insertedId });
+    const responseData = { message: 'Carousel image added', id: insertedId };
+    //res.status(201).json({ message: 'Carousel image added', id: insertedId });
+
+    // Encrypt the response data before sending it back to the frontend
+    const encryptedData = encrypt(JSON.stringify(responseData));
+    console.log("Encrypted Response Data:", encryptedData);
+
+    // Send encrypted data as the response
+    res.status(200).send( encryptedData );
+
   } catch (error) {
     res.status(500).json({ error: 'Server error', details: error.message });
   }
@@ -43,11 +103,26 @@ const carouselAdd = async (req, res) => {
 // Add a new course
 const coursesAdd = async (req, res) => {
   try {
-    const { title, image, url } = req.body;
+    const { data } = req.body; // Encrypted login data from the frontend
+    console.log("Encrypted Response:", data);
+    console.log(data);
+    // Decrypt the entire payload
+    const decryptedResponse = decrypt(data); // Decrypt the data received from the frontend
+    console.log("Decrypted Response:", decryptedResponse);
+
+    // Parse the decrypted response into a JavaScript object
+    const { title, image, url } = JSON.parse(decryptedResponse);
     const insertedId = await addCourses(title, image, url);
-    res.status(201).json({ message: 'Course added', id: insertedId });
+    //res.status(201).json({ message: 'Course added', id: insertedId });
+    const responseData = { message: 'Course added', id: insertedId };
+    // Encrypt the response data before sending it back to the frontend
+    const encryptedData = encrypt(JSON.stringify(responseData));
+    console.log("Encrypted Response Data:", encryptedData);
+    // Send encrypted data as the response
+    res.status(200).send(encryptedData);
+
   } catch (error) {
-    res.status(500).json({ error: 'Server error', details: error.message });
+    res.status(500).send(encryptedData);
   }
 };
 
@@ -55,7 +130,15 @@ const coursesAdd = async (req, res) => {
 const getLastCoursesController = async (req, res) => {
   try {
     const courses = await getLastCourses();
-    res.status(200).json(courses);
+    //res.status(200).json(courses);
+
+    // Encrypt the response data before sending it back to the frontend
+    const encryptedData = encrypt(JSON.stringify(courses));
+    console.log("Encrypted Response Data:", encryptedData);
+
+    // Send encrypted data as the response
+    res.status(200).send( encryptedData );
+
   } catch (error) {
     res.status(500).json({ error: 'Server error', details: error.message });
   }
@@ -66,7 +149,15 @@ const getCoursesByTitleController = async (req, res) => {
   try {
     const { title } = req.params; // Pass title as a URL parameter
     const courses = await getCoursesByTitle(title);
-    res.status(200).json(courses);
+    console.log(courses);
+    //res.status(200).json(courses);
+    // Encrypt the response data before sending it back to the frontend
+    const encryptedData = encrypt(JSON.stringify(courses));
+    console.log("Encrypted Response Data:", encryptedData);
+
+    // Send encrypted data as the response
+    res.status(200).send( encryptedData );
+
   } catch (error) {
     res.status(500).json({ error: 'Server error', details: error.message });
   }
@@ -76,7 +167,14 @@ const getCoursesByTitleController = async (req, res) => {
 const getLastImagesController = async (req, res) => {
   try {
     const images = await getLastImages();
-    res.status(200).json(images);
+    //res.status(200).json(images);
+    // Encrypt the response data before sending it back to the frontend
+    const encryptedData = encrypt(JSON.stringify(images));
+    console.log("Encrypted Response Data:", encryptedData);
+
+    // Send encrypted data as the response
+    res.status(200).send( encryptedData );
+
   } catch (error) {
     res.status(500).json({ error: 'Server error', details: error.message });
   }
@@ -85,11 +183,26 @@ const getLastImagesController = async (req, res) => {
 // Add course to cart
 const addToCartController = async (req, res) => {
   try {
-    const { title, image, price } = req.body;
+    const { data } = req.body; // Encrypted login data from the frontend
+    console.log("Encrypted Response:", data);
+    console.log(data);
+    // Decrypt the entire payload
+    const decryptedResponse = decrypt(data); // Decrypt the data received from the frontend
+    console.log("Decrypted Response:", decryptedResponse);
+
+    // Parse the decrypted response into a JavaScript object
+    const { title, image, price } = JSON.parse(decryptedResponse);
     const email = req.email; // Extract email from token
 
     const response = await addToCart(email, title, image, price);
-    res.status(200).json(response);
+    // Encrypt the response data before sending it back to the frontend
+    const encryptedData = encrypt(JSON.stringify(response));
+    console.log("Encrypted Response Data:", encryptedData);
+
+    // Send encrypted data as the response
+    res.status(200).send( encryptedData );
+
+    //res.status(200).json(response);
   } catch (error) {
     res.status(500).json({ error: 'Server error', details: error.message });
   }
@@ -100,7 +213,14 @@ const getCartController = async (req, res) => {
   try {
     const email = req.email; // Extract email from token
     const cart = await getCart(email);
-    res.status(200).json(cart);
+    //res.status(200).json(cart);
+    // Encrypt the response data before sending it back to the frontend
+    const encryptedData = encrypt(JSON.stringify(cart));
+    console.log("Encrypted Response Data:", encryptedData);
+
+    // Send encrypted data as the response
+    res.status(200).send( encryptedData );
+
   } catch (error) {
     res.status(500).json({ error: 'Server error', details: error.message });
   }
@@ -109,11 +229,26 @@ const getCartController = async (req, res) => {
 // Remove a course from cart using title
 const removeFromCartController = async (req, res) => {
   try {
-    const { title } = req.body;
+    const { data } = req.body; // Encrypted login data from the frontend
+    console.log("Encrypted Response:", data);
+    console.log(data);
+    // Decrypt the entire payload
+    const decryptedResponse = decrypt(data); // Decrypt the data received from the frontend
+    console.log("Decrypted Response:", decryptedResponse);
+
+    // Parse the decrypted response into a JavaScript object
+    const { title } = JSON.parse(decryptedResponse);
     const email = req.email; // Extract email from token
 
     const response = await removeFromCart(email, title);
-    res.status(200).json(response);
+    //res.status(200).json(response);
+    // Encrypt the response data before sending it back to the frontend
+    const encryptedData = encrypt(JSON.stringify(response));
+    console.log("Encrypted Response Data:", encryptedData);
+
+    // Send encrypted data as the response
+    res.status(200).send( encryptedData );
+
   } catch (error) {
     res.status(500).json({ error: 'Server error', details: error.message });
   }
@@ -124,7 +259,14 @@ const clearCartController = async (req, res) => {
   try {
     const email = req.email; // Extract email from token
     const response = await clearCart(email);
-    res.status(200).json(response);
+    //res.status(200).json(response);
+    // Encrypt the response data before sending it back to the frontend
+    const encryptedData = encrypt(JSON.stringify(responseData));
+    console.log("Encrypted Response Data:", encryptedData);
+
+    // Send encrypted data as the response
+    res.status(200).send( encryptedData );
+
   } catch (error) {
     res.status(500).json({ error: 'Server error', details: error.message });
   }
@@ -132,7 +274,15 @@ const clearCartController = async (req, res) => {
 
 const purchaseSingleController = async (req, res) => {
   try {
-    const { title, image, price } = req.body;
+    const { data } = req.body; // Encrypted login data from the frontend
+    console.log("Encrypted Response:", data);
+    console.log(data);
+    // Decrypt the entire payload
+    const decryptedResponse = decrypt(data); // Decrypt the data received from the frontend
+    console.log("Decrypted Response:", decryptedResponse);
+
+    // Parse the decrypted response into a JavaScript object
+    const { title, image, price } = JSON.parse(decryptedResponse);
     const email = req.email;
 
     if (!title || !image || !price) {
@@ -147,12 +297,23 @@ const purchaseSingleController = async (req, res) => {
     };
 
     const result = await purchaseSingleCourse(email, course);
-
-    res.status(200).json({
+    // Encrypt the response data before sending it back to the frontend
+    const responseData = {
       success: true,
       message: result.message,
       alreadyPurchased: result.alreadyPurchased
-    });
+    };
+    const encryptedData = encrypt(JSON.stringify(responseData));
+    console.log("Encrypted Response Data:", encryptedData);
+
+    // Send encrypted data as the response
+    res.status(200).send( encryptedData );
+    
+    /**res.status(200).json({
+      success: true,
+      message: result.message,
+      alreadyPurchased: result.alreadyPurchased
+    });**/
 
   } catch (error) {
     res.status(500).json({
@@ -166,12 +327,24 @@ const purchaseCartController = async (req, res) => {
   try {
     const email = req.email;
     const result = await purchaseCart(email);
+    const responseData = {
+      success: true,
+      message: result.message,
+      newPurchases: result.newPurchases,
+      existingCourses: result.existingCourses
+    };
+    const encryptedData = encrypt(JSON.stringify(responseData));
+    console.log("Encrypted Response Data:", encryptedData);
+
+    // Send encrypted data as the response
+    res.status(200).send( encryptedData );
+/**
     res.status(200).json({
       success: true,
       message: result.message,
       newPurchases: result.newPurchases,
       existingCourses: result.existingCourses
-    });
+    });**/
   } catch (error) {
     res.status(400).json({
       success: false,
@@ -184,11 +357,23 @@ const getMyCoursesController = async (req, res) => {
   try {
     const email = req.email;
     const courses = await getMyCourses(email);
-    res.status(200).json({
+    /*res.status(200).json({
       success: true,
       count: courses.length,
       courses
-    });
+    });*/
+    const responseData ={
+      success: true,
+      count: courses.length,
+      courses
+    };
+    console.log(responseData);
+    const encryptedData = encrypt(JSON.stringify(responseData));
+    console.log("Encrypted Response Data:", encryptedData);
+
+    // Send encrypted data as the response
+    res.status(200).send( encryptedData );
+
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -205,11 +390,24 @@ const getMyCoursesController = async (req, res) => {
 // Add course to wishlist
 const addToWishlistController = async (req, res) => {
   try {
-    const { title, image, price } = req.body;
+    const { data } = req.body; // Encrypted login data from the frontend
+    console.log("Encrypted Response:", data);
+    console.log(data);
+    // Decrypt the entire payload
+    const decryptedResponse = decrypt(data); // Decrypt the data received from the frontend
+    console.log("Decrypted Response:", decryptedResponse);
+
+    // Parse the decrypted response into a JavaScript object
+    const { title, image, price } = JSON.parse(decryptedResponse);
     const email = req.email; // Extract email from token
 
     const response = await addToWishlist(email, title, image, price);
-    res.status(200).json(response);
+    //res.status(200).json(response);
+    const encryptedData = encrypt(JSON.stringify(response));
+    console.log("Encrypted Response Data:", encryptedData);
+
+    // Send encrypted data as the response
+    res.status(200).send( encryptedData );
   } catch (error) {
     res.status(500).json({ error: 'Server error', details: error.message });
   }
@@ -220,7 +418,11 @@ const getWishlistController = async (req, res) => {
   try {
     const email = req.email; // Extract email from token
     const wishlist = await getWishlist(email);
-    res.status(200).json(wishlist);
+    //res.status(200).json(wishlist);
+    const encryptedData = encrypt(JSON.stringify(wishlist));
+    console.log("Encrypted Response Data:", encryptedData);
+    // Send encrypted data as the response
+    res.status(200).send( encryptedData );
   } catch (error) {
     res.status(500).json({ error: 'Server error', details: error.message });
   }
@@ -229,11 +431,22 @@ const getWishlistController = async (req, res) => {
 // Remove a course from wishlist using title
 const removeFromWishlistController = async (req, res) => {
   try {
-    const { title } = req.body;
+    const { data } = req.body; // Encrypted login data from the frontend
+    console.log("Encrypted Response:", data);
+    console.log(data);
+    // Decrypt the entire payload
+    const decryptedResponse = decrypt(data); // Decrypt the data received from the frontend
+    console.log("Decrypted Response:", decryptedResponse);
+
+    // Parse the decrypted response into a JavaScript object
+    const { title } = JSON.parse(decryptedResponse);
     const email = req.email;
 
     const response = await removeFromWishlist(email, title);
-    res.status(200).json(response);
+    const encryptedData = encrypt(JSON.stringify(response));
+    console.log("Encrypted Response Data:", encryptedData);
+    // Send encrypted data as the response
+    res.status(200).send( encryptedData );
   } catch (error) {
     res.status(500).json({ error: 'Server error', details: error.message });
   }
@@ -244,7 +457,11 @@ const clearWishlistController = async (req, res) => {
   try {
     const email = req.email;
     const response = await clearWishlist(email);
-    res.status(200).json(response);
+    //res.status(200).json(response);
+    const encryptedData = encrypt(JSON.stringify(response));
+    console.log("Encrypted Response Data:", encryptedData);
+    // Send encrypted data as the response
+    res.status(200).send( encryptedData );
   } catch (error) {
     res.status(500).json({ error: 'Server error', details: error.message });
   }
@@ -256,7 +473,15 @@ const FASTAPI_URL = "https://1ce7-47-247-75-228.ngrok-free.app/search";//"https:
 
 const searchSmartCoursesController = async (req, res) => {
   try {
-    const { query } = req.body;
+    const { data } = req.body; // Encrypted login data from the frontend
+    console.log("Encrypted Response:", data);
+    console.log(data);
+    // Decrypt the entire payload
+    const decryptedResponse = decrypt(data); // Decrypt the data received from the frontend
+    console.log("Decrypted Response:", decryptedResponse);
+
+    // Parse the decrypted response into a JavaScript object
+    const { query } = JSON.parse(decryptedResponse);
     const email = req.email;
 
     if (!query) {
@@ -301,7 +526,12 @@ const searchSmartCoursesController = async (req, res) => {
       filteredIds.includes(course._id.toString())
     );
 
-    res.status(200).json({ results: matchedCourses });
+    //res.status(200).json({ results: matchedCourses });
+    const responseData ={ results: matchedCourses };
+    const encryptedData = encrypt(JSON.stringify(responseData));
+    console.log("Encrypted Response Data:", encryptedData);
+    // Send encrypted data as the response
+    res.status(200).send( encryptedData );
 
   } catch (err) {
     console.error("Smart search error:", err.message);
@@ -360,7 +590,12 @@ const recommendCoursesController = async (req, res) => {
       }));
 
     // 9. Return to frontend
-    res.status(200).json({ results: enrichedResults });
+    //res.status(200).json({ results: enrichedResults });
+    const responseData ={ results: enrichedResults };
+    const encryptedData = encrypt(JSON.stringify(responseData));
+    console.log("Encrypted Response Data:", encryptedData);
+    // Send encrypted data as the response
+    res.status(200).send( encryptedData );
 
   } catch (err) {
     console.error("Recommendation error:", err.message);
