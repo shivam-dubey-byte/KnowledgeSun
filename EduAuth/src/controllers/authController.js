@@ -6,8 +6,6 @@ const {
   updatePassword
 } = require('../models/userModel');
 
-const crypto = require('crypto');
-
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
@@ -46,62 +44,19 @@ const profileImageLinks = {
     z: "https://i.imgur.com/undefined.jpg"
 };
 
-// 32-byte AES key
-const key = Buffer.from('7c3932af93b283dae0c5173b9adffa299a87e33b92e13a9119e120d8249e199e', 'hex'); // 32-byte key for AES-256
-
-// AES-GCM encryption function
-function encrypt(text) {
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  return Buffer.concat([iv, encrypted, tag]).toString('base64');
-}
-
-// AES-GCM decryption function
-function decrypt(data) {
-  const dataBuffer = Buffer.from(data, 'base64');
-  
-  if (dataBuffer.length < 28) {
-    throw new Error('Invalid encrypted data');
-  }
-
-  const iv = dataBuffer.slice(0, 12);
-  const tag = dataBuffer.slice(dataBuffer.length - 16);
-  const encrypted = dataBuffer.slice(12, dataBuffer.length - 16);
-
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-  decipher.setAuthTag(tag);
-
-  try {
-    let decrypted = decipher.update(encrypted, null, 'utf8');
-    decrypted += decipher.final('utf8');
-    return decrypted;
-  } catch (err) {
-    console.error('Decryption failed:', err);
-    throw new Error('Decryption failed. Possible integrity issue.');
-  }
-}
-
-
 // **User Signup**
 const signup = async (req, res) => {
   try {
-    const { data } = req.body; // Encrypted signup data from the frontend
-    console.log("Encrypted Signup Data:", data);
-
-    // Decrypt the entire payload
-    const decryptedResponse = decrypt(data); // Decrypt the data received from the frontend
-    console.log("Decrypted Signup Data:", decryptedResponse);
-
-    // Parse the decrypted response into a JavaScript object
-    const { email, password } = JSON.parse(decryptedResponse);
+    const { email, password } = req.body;
 
     // Check if user already exists
     let user = await findUserByEmail(email);
     if (user) {
       return res.status(400).json({ message: "User already exists" });
     }
+
+    // Hash password
+    //const hashedPassword = await bcrypt.hash(password, 10);
 
     // Get first letter of email & assign profile image
     const firstLetter = email.charAt(0).toLowerCase();
@@ -114,10 +69,9 @@ const signup = async (req, res) => {
     const newUser = await findUserByEmail(email);
 
     // Generate token
-    const token = jwt.sign({ userId: newUser._id, email: newUser.email }, "shivam", { expiresIn: "15d" });
+    const token = jwt.sign({ userId: newUser._id,  email: newUser.email },"shivam", { expiresIn: "15d" });
 
-    // Prepare response data
-    const responseData = {
+    res.status(201).json({
       message: "User registered successfully",
       token,
       user: {
@@ -126,15 +80,7 @@ const signup = async (req, res) => {
         email: newUser.email,
         profile: newUser.profile
       }
-    };
-
-    // Encrypt the response data before sending it back to the frontend
-    const encryptedData = encrypt(JSON.stringify(responseData));
-    console.log("Encrypted Response Data:", encryptedData);
-
-    // Send encrypted data as the response
-    res.status(201).send(encryptedData);
-
+    });
   } catch (error) {
     console.error("Signup Error:", error);
     res.status(500).json({ message: "Server error", error });
@@ -144,15 +90,7 @@ const signup = async (req, res) => {
 // **User Login**
 const login = async (req, res) => {
   try {
-    const { data } = req.body; // Encrypted login data from the frontend
-    console.log("Encrypted Response:", data);
-    console.log(data);
-    // Decrypt the entire payload
-    const decryptedResponse = decrypt(data); // Decrypt the data received from the frontend
-    console.log("Decrypted Response:", decryptedResponse);
-
-    // Parse the decrypted response into a JavaScript object
-    const { email, password } = JSON.parse(decryptedResponse);
+    const { email, password } = req.body;
 
     // Find user in DB
     const user = await findUserByEmail(email);
@@ -167,24 +105,11 @@ const login = async (req, res) => {
     }
 
     // Generate JWT Token
-    const token = jwt.sign({ userId: user._id, email: user.email }, 'shivam', { expiresIn: "15d" });
+    const token = jwt.sign({ userId: user._id, email: user.email }, 'shivam', {
+      expiresIn: "15d",
+    });
 
-    // Prepare response data
-    const responseData = {
-      message: "Login successful",
-      token,
-      user: {
-        profile: user.profile,
-      },
-    };
-
-    // Encrypt the response data before sending it back to the frontend
-    const encryptedData = encrypt(JSON.stringify(responseData));
-    console.log("Encrypted Response Data:", encryptedData);
-
-    // Send encrypted data as the response
-    res.status(200).send( encryptedData );
-
+    res.status(200).json({ message: "Login successful", token, user: { profile: user.profile } });
   } catch (error) {
     console.error("Login Error:", error);
     res.status(500).json({ error: "Server error" });
@@ -193,59 +118,41 @@ const login = async (req, res) => {
 
 // **Forgot Password Controller**
 const forgotPassword = async (req, res) => {
-  const { data } = req.body; // Encrypted email data from the frontend
-  console.log(data);
-  try {
-    // Decrypt the email data received from the frontend
-    const decryptedEmail = decrypt(data);
-    console.log("Decrypted Email:", decryptedEmail);
+  const { email } = req.body;
 
-    // Check if user exists
-    const user = await findUserByEmail(decryptedEmail);
+  try {
+    const user = await findUserByEmail(email);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Generate reset token with 15-day expiration
     const resetToken = jwt.sign({ userId: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: "15d" });
 
-    // Prepare reset URL (you can customize the URL or make it encrypted if needed)
     const resetUrl = `https://knowledgesun.quantumsoftdev.in/reset-password/${resetToken}`;
-
-    // Send reset email (you can pass encrypted data if required)
     await sendResetEmail(user.email, resetUrl);
 
-    // Encrypt the response message before sending it back
-    const encryptedResponse = encrypt("Password reset email sent");
-    console.log("Encrypted Response:", encryptedResponse);
-    res.status(200).json({ message: encryptedResponse });
-
+    res.status(200).json({ message: "Password reset email sent" });
   } catch (error) {
     console.error("Forgot Password Error:", error);
     res.status(500).json({ message: "Server error", error });
   }
 };
 
-
 // **Reset Password Controller**
 const resetPassword = async (req, res) => {
   const { token } = req.params;
-  const { data } = req.body; // Encrypted new password
+  const { newPassword } = req.body;
 
   try {
     console.log("Received Token:", token);
 
-    // Decrypt the new password
-    const decryptedPassword = decrypt(data);
-    console.log("Decrypted New Password:", decryptedPassword);
-
-    // Verify the token and decode user information
+    // Verify the token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log("Decoded Token:", decoded);
 
     const { email } = decoded;
 
-    // Find the user in DB
+    // Find the user
     const user = await findUserByEmail(email);
     console.log("User Found:", user);
 
@@ -253,14 +160,11 @@ const resetPassword = async (req, res) => {
       return res.status(400).json({ message: "Invalid or expired token" });
     }
 
-    // Hash and update the new password
-    const hashedPassword = await bcrypt.hash(decryptedPassword, 10);
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
     await updatePassword(user._id, hashedPassword);
 
-    // Encrypt the response message before sending it back
-    const encryptedResponse = encrypt("Password reset successful");
-    res.status(200).json({ message: encryptedResponse });
-
+    res.status(200).json({ message: "Password reset successful" });
   } catch (error) {
     console.error("Reset Password Error:", error);
     res.status(500).json({ message: "Server error", error });
